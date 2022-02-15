@@ -107,23 +107,45 @@ def init_random(args, bs):
     return t.FloatTensor(bs, n_ch, im_sz, im_sz).uniform_(-1, 1)
 
 
-def get_model_and_buffer(args, device, sample_q):
+# def get_model_and_buffer(args, device, sample_q):
+#     model_cls = F if args.uncond else CCF
+#     f = model_cls(args.depth, args.width, args.norm, dropout_rate=args.dropout_rate, n_classes=args.n_classes)
+#     if not args.uncond:
+#         assert args.buffer_size % args.n_classes == 0, "Buffer size must be divisible by args.n_classes"
+#     if args.load_path is None:
+#         # make replay buffer
+#         replay_buffer = init_random(args, args.buffer_size)
+#     else:
+#         print(f"loading model from {args.load_path}")
+#         ckpt_dict = t.load(args.load_path)
+#         f.load_state_dict(ckpt_dict["model_state_dict"])
+#         replay_buffer = ckpt_dict["replay_buffer"]
+
+#     f = f.to(device)
+#     return f, replay_buffer
+
+def get_model_and_buffer(args, optimizer, device):
     model_cls = F if args.uncond else CCF
     f = model_cls(args.depth, args.width, args.norm, dropout_rate=args.dropout_rate, n_classes=args.n_classes)
-    if not args.uncond:
-        assert args.buffer_size % args.n_classes == 0, "Buffer size must be divisible by args.n_classes"
-    if args.load_path is None:
-        # make replay buffer
-        replay_buffer = init_random(args, args.buffer_size)
-    else:
+    start_epoch = 0
+    
+    if args.load_path is not None:
         print(f"loading model from {args.load_path}")
         ckpt_dict = t.load(args.load_path)
         f.load_state_dict(ckpt_dict["model_state_dict"])
-        replay_buffer = ckpt_dict["replay_buffer"]
+        start_epoch = ckpt_dict['epoch']
 
     f = f.to(device)
-    return f, replay_buffer
+    return f, start_epoch
 
+
+def get_optim(optim):
+
+    if args.load_path is not None:
+        print('Loading optimizer state')
+        ckpt_dict = t.load(args.load_path)
+        optim.load_state_dict(ckpt_dict['optimizer_state_dict'])
+    return optim
 
 def get_data(args):
     if args.dataset == "svhn":
@@ -199,44 +221,62 @@ def get_data(args):
     return dload_train, dload_train_labeled, dload_valid,dload_test
 
 
-def get_sample_q(args, device):
-    def sample_p_0(replay_buffer, bs, y=None):
-        if len(replay_buffer) == 0:
-            return init_random(args, bs), []
-        buffer_size = len(replay_buffer) if y is None else len(replay_buffer) // args.n_classes
-        inds = t.randint(0, buffer_size, (bs,))
-        # if cond, convert inds to class conditional inds
-        if y is not None:
-            inds = y.cpu() * buffer_size + inds
-            assert not args.uncond, "Can't drawn conditional samples without giving me y"
-        buffer_samples = replay_buffer[inds]
-        random_samples = init_random(args, bs)
-        choose_random = (t.rand(bs) < args.reinit_freq).float()[:, None, None, None]
-        samples = choose_random * random_samples + (1 - choose_random) * buffer_samples
-        return samples.to(device), inds
+# def get_sample_q(args, device):
+#     def sample_p_0(replay_buffer, bs, y=None):
+#         if len(replay_buffer) == 0:
+#             return init_random(args, bs), []
+#         buffer_size = len(replay_buffer) if y is None else len(replay_buffer) // args.n_classes
+#         inds = t.randint(0, buffer_size, (bs,))
+#         # if cond, convert inds to class conditional inds
+#         if y is not None:
+#             inds = y.cpu() * buffer_size + inds
+#             assert not args.uncond, "Can't drawn conditional samples without giving me y"
+#         buffer_samples = replay_buffer[inds]
+#         random_samples = init_random(args, bs)
+#         choose_random = (t.rand(bs) < args.reinit_freq).float()[:, None, None, None]
+#         samples = choose_random * random_samples + (1 - choose_random) * buffer_samples
+#         return samples.to(device), inds
 
-    def sample_q(f, replay_buffer, y=None, n_steps=args.n_steps):
-        """this func takes in replay_buffer now so we have the option to sample from
-        scratch (i.e. replay_buffer==[]).  See test_wrn_ebm.py for example.
-        """
-        f.eval()
-        # get batch size
-        bs = args.batch_size if y is None else y.size(0)
-        # generate initial samples and buffer inds of those samples (if buffer is used)
-        init_sample, buffer_inds = sample_p_0(replay_buffer, bs=bs, y=y)
-        x_k = t.autograd.Variable(init_sample, requires_grad=True)
-        # sgld
-        for k in range(n_steps):
-            f_prime = t.autograd.grad(f(x_k, y=y).sum(), [x_k], retain_graph=True)[0]
-            x_k.data += args.sgld_lr * f_prime + args.sgld_std * t.randn_like(x_k)
-        f.train()
-        final_samples = x_k.detach()
-        # update replay buffer
-        if len(replay_buffer) > 0:
-            replay_buffer[buffer_inds] = final_samples.cpu()
-        return final_samples
-    return sample_q
+#     def sample_q(f, replay_buffer, y=None, n_steps=args.n_steps):
+#         """this func takes in replay_buffer now so we have the option to sample from
+#         scratch (i.e. replay_buffer==[]).  See test_wrn_ebm.py for example.
+#         """
+#         f.eval()
+#         # get batch size
+#         bs = args.batch_size if y is None else y.size(0)
+#         # generate initial samples and buffer inds of those samples (if buffer is used)
+#         init_sample, buffer_inds = sample_p_0(replay_buffer, bs=bs, y=y)
+#         x_k = t.autograd.Variable(init_sample, requires_grad=True)
+#         # sgld
+#         for k in range(n_steps):
+#             f_prime = t.autograd.grad(f(x_k, y=y).sum(), [x_k], retain_graph=True)[0]
+#             x_k.data += args.sgld_lr * f_prime + args.sgld_std * t.randn_like(x_k)
+#         f.train()
+#         final_samples = x_k.detach()
+#         # update replay buffer
+#         if len(replay_buffer) > 0:
+#             replay_buffer[buffer_inds] = final_samples.cpu()
+#         return final_samples
+#     return sample_q
 
+def grad_sample_x(X_sample, f, n_steps):
+    '''
+    Function for sampling X_sample
+    '''
+  
+    f.eval()
+    for k in range(n_steps):
+
+        out_energy = f(X_sample)
+        X_grad = t.autograd.grad(out_energy.sum(), [X_sample])[0]
+        print('X_grad prev', X_grad.shape)
+        X_grad = X_grad[0]
+        print('X_grad_new', X_grad.shape)
+        # print('X_GRAD', X_grad)
+        X_sample.data -= X_grad + 0.01 * t.randn_like(X_sample)
+
+    f.train()
+    return X_sample
 
 def eval_classification(f, dload, device):
     corrects, losses = [], []
@@ -252,15 +292,15 @@ def eval_classification(f, dload, device):
     return correct, loss
 
 
-def checkpoint(f, buffer, tag, args, device):
+def checkpoint(f, optimizer, epoch, tag, args, device):
     f.cpu()
     ckpt_dict = {
-        "model_state_dict": f.state_dict(),
-        "replay_buffer": buffer
+        "epoch" : epoch,
+        "optimizer_state_dict" : optimizer.state_dict(),
+        "model_state_dict": f.state_dict()
     }
     t.save(ckpt_dict, os.path.join(args.save_dir, tag))
     f.to(device)
-
 
 def main(args):
     utils.makedirs(args.save_dir)
@@ -278,22 +318,31 @@ def main(args):
 
     device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
-    sample_q = get_sample_q(args, device)
-    f, replay_buffer = get_model_and_buffer(args, device, sample_q)
+    # sample_q = get_sample_q(args, device)
+    # f, replay_buffer = get_model_and_buffer(args, device, sample_q)
+    f, start_epoch = get_model_and_buffer(args, device)
 
-    sqrt = lambda x: int(t.sqrt(t.Tensor([x])))
-    plot = lambda p, x: tv.utils.save_image(t.clamp(x, -1, 1), p, normalize=True, nrow=sqrt(x.size(0)))
-
-    # optimizer
     params = f.class_output.parameters() if args.clf_only else f.parameters()
     if args.optimizer == "adam":
         optim = t.optim.Adam(params, lr=args.lr, betas=[.9, .999], weight_decay=args.weight_decay)
     else:
         optim = t.optim.SGD(params, lr=args.lr, momentum=.9, weight_decay=args.weight_decay)
 
+    optim = get_optim(optim)
+    sqrt = lambda x: int(t.sqrt(t.Tensor([x])))
+    # plot = lambda p, x: tv.utils.save_image(t.clamp(x, -1, 1), p, normalize=True, nrow=sqrt(x.size(0)))
+
+    # optimizer
+    # params = f.class_output.parameters() if args.clf_only else f.parameters()
+    # if args.optimizer == "adam":
+    #     optim = t.optim.Adam(params, lr=args.lr, betas=[.9, .999], weight_decay=args.weight_decay)
+    # else:
+    #     optim = t.optim.SGD(params, lr=args.lr, momentum=.9, weight_decay=args.weight_decay)
+
     best_valid_acc = 0.0
     cur_iter = 0
-    for epoch in range(args.n_epochs):
+    for epoch in range(start_epoch, args.n_epochs):
+        print('Starting epoch from ', start_epoch)
         if epoch in args.decay_epochs:
             for param_group in optim.param_groups:
                 new_lr = param_group['lr'] * args.decay_rate
@@ -313,10 +362,14 @@ def main(args):
             if args.p_x_weight > 0:  # maximize log p(x)
                 if args.class_cond_p_x_sample:
                     assert not args.uncond, "can only draw class-conditional samples if EBM is class-cond"
-                    y_q = t.randint(0, args.n_classes, (args.batch_size,)).to(device)
-                    x_q = sample_q(f, replay_buffer, y=y_q)
+                    # y_q = t.randint(0, args.n_classes, (args.batch_size,)).to(device)
+                    # x_q = sample_q(f, replay_buffer, y=y_q)
+                    x_q = grad_sample_x(x_p_d, f, args.n_steps)
+
+
                 else:
-                    x_q = sample_q(f, replay_buffer)  # sample from log-sumexp
+                    # x_q = sample_q(f, replay_buffer)  # sample from log-sumexp
+                    x_q = grad_sample_x(x_p_d, f, args.n_steps)
 
                 fp_all = f(x_p_d)
                 fq_all = f(x_q)
@@ -341,6 +394,8 @@ def main(args):
                 L += args.p_y_given_x_weight * l_p_y_given_x
 
             if args.p_x_y_weight > 0:  # maximize log p(x, y)
+
+                print('Inside P_X_Y')
                 assert not args.uncond, "this objective can only be trained for class-conditional EBM DUUUUUUUUHHHH!!!"
                 x_q_lab = sample_q(f, replay_buffer, y=y_lab)
                 fp, fq = f(x_lab, y_lab).mean(), f(x_q_lab, y_lab).mean()
@@ -350,6 +405,7 @@ def main(args):
                                                                                                       fp - fq))
 
                 L += args.p_x_y_weight * l_p_x_y
+                sys.exit()
 
             # break if the loss diverged...easier for poppa to run experiments this way
             if L.abs().item() > 1e8:
@@ -361,22 +417,22 @@ def main(args):
             optim.step()
             cur_iter += 1
 
-            if cur_iter % 100 == 0:
-                if args.plot_uncond:
-                    if args.class_cond_p_x_sample:
-                        assert not args.uncond, "can only draw class-conditional samples if EBM is class-cond"
-                        y_q = t.randint(0, args.n_classes, (args.batch_size,)).to(device)
-                        x_q = sample_q(f, replay_buffer, y=y_q)
-                    else:
-                        x_q = sample_q(f, replay_buffer)
-                    plot('{}/x_q_{}_{:>06d}.png'.format(args.save_dir, epoch, i), x_q)
-                if args.plot_cond:  # generate class-conditional samples
-                    y = t.arange(0, args.n_classes)[None].repeat(args.n_classes, 1).transpose(1, 0).contiguous().view(-1).to(device)
-                    x_q_y = sample_q(f, replay_buffer, y=y)
-                    plot('{}/x_q_y{}_{:>06d}.png'.format(args.save_dir, epoch, i), x_q_y)
+            # if cur_iter % 100 == 0:
+            #     if args.plot_uncond:
+            #         if args.class_cond_p_x_sample:
+            #             assert not args.uncond, "can only draw class-conditional samples if EBM is class-cond"
+            #             y_q = t.randint(0, args.n_classes, (args.batch_size,)).to(device)
+            #             x_q = sample_q(f, replay_buffer, y=y_q)
+            #         else:
+            #             x_q = sample_q(f, replay_buffer)
+            #         plot('{}/x_q_{}_{:>06d}.png'.format(args.save_dir, epoch, i), x_q)
+            #     if args.plot_cond:  # generate class-conditional samples
+            #         y = t.arange(0, args.n_classes)[None].repeat(args.n_classes, 1).transpose(1, 0).contiguous().view(-1).to(device)
+            #         x_q_y = sample_q(f, replay_buffer, y=y)
+            #         plot('{}/x_q_y{}_{:>06d}.png'.format(args.save_dir, epoch, i), x_q_y)
 
         if epoch % args.ckpt_every == 0:
-            checkpoint(f, replay_buffer, f'ckpt_{epoch}.pt', args, device)
+            checkpoint(f, optim, epoch, f'ckpt_{epoch}.pt', args, device)
 
         if epoch % args.eval_every == 0 and (args.p_y_given_x_weight > 0 or args.p_x_y_weight > 0):
             f.eval()
@@ -387,12 +443,12 @@ def main(args):
                 if correct > best_valid_acc:
                     best_valid_acc = correct
                     print("Best Valid!: {}".format(correct))
-                    checkpoint(f, replay_buffer, "best_valid_ckpt.pt", args, device)
+                    checkpoint(f, optim, epoch, "best_valid_ckpt.pt", args, device)
                 # test set
                 correct, loss = eval_classification(f, dload_test, device)
                 print("Epoch {}: Test Loss {}, Test Acc {}".format(epoch, loss, correct))
             f.train()
-        checkpoint(f, replay_buffer, "last_ckpt.pt", args, device)
+        checkpoint(f, optim, epoch, "last_ckpt.pt", args, device)
 
 
 
