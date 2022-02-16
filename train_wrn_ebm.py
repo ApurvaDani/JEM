@@ -348,10 +348,10 @@ def main(args):
     # else:
     #     optim = t.optim.SGD(params, lr=args.lr, momentum=.9, weight_decay=args.weight_decay)
 
-    with open('./logs.txt', 'a') as f:
+    with open('./logs.txt', 'a') as fw:
         
-        f.write('Device Type', device, '\n')
-        f.write('Training started \n')
+        fw.write('Device Type - ' + str(device) + '\n')
+        fw.write('Training started \n')
 
 
 
@@ -464,8 +464,8 @@ def main(args):
                 print("Epoch {}: Test Loss {}, Test Acc {}".format(epoch, loss, correct))
             f.train()
         
-        with open('./logs.txt', 'a') as f:
-            f.write('Epoch ', epoch, 'completed - ', correct, '\n')
+        with open('./logs.txt', 'a') as fw:
+            fw.write('Epoch - ' +  str(epoch) + 'completed - ' + str(correct) + '\n')
         
         if epoch % args.ckpt_every == 0:
             checkpoint(f, optim, epoch, cur_iter, best_valid_acc, f'ckpt_{epoch}.pt', args, device)
