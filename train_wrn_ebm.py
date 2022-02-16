@@ -265,6 +265,7 @@ def grad_sample_x(X_sample, f, n_steps):
     '''
   
     f.eval()
+    print('Iterating for steps', n_steps)
     X_sample.requires_grad = True
     for k in range(n_steps):
 
