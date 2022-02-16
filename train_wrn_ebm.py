@@ -348,7 +348,13 @@ def main(args):
     # else:
     #     optim = t.optim.SGD(params, lr=args.lr, momentum=.9, weight_decay=args.weight_decay)
 
-    
+    with open('./logs.txt', 'a') as f:
+        
+        f.write('Device Type', device, '\n')
+        f.write('Training started \n')
+
+
+
     for epoch in range(start_epoch, args.n_epochs):
         print('Starting epoch from ', start_epoch)
         if epoch in args.decay_epochs:
@@ -425,7 +431,6 @@ def main(args):
             L.backward()
             optim.step()
             cur_iter += 1
-            break
 
             # if cur_iter % 100 == 0:
             #     if args.plot_uncond:
@@ -458,7 +463,10 @@ def main(args):
                 correct, loss = eval_classification(f, dload_test, device)
                 print("Epoch {}: Test Loss {}, Test Acc {}".format(epoch, loss, correct))
             f.train()
-    
+        
+        with open('./logs.txt', 'a') as f:
+            f.write('Epoch ', epoch, 'completed - ', correct, '\n')
+        
         if epoch % args.ckpt_every == 0:
             checkpoint(f, optim, epoch, cur_iter, best_valid_acc, f'ckpt_{epoch}.pt', args, device)
         
