@@ -271,8 +271,8 @@ def grad_sample_x(X_sample, f, n_steps):
         out_energy = f(X_sample)
         X_grad = t.autograd.grad(out_energy.sum(), [X_sample])[0]
         print('X_grad prev', X_grad.shape)
-        X_grad = X_grad[0]
-        print('X_grad_new', X_grad.shape)
+        # X_grad = X_grad[0]
+        # print('X_grad_new', X_grad.shape)
         # print('X_GRAD', X_grad)
         X_sample.data -= X_grad + 0.01 * t.randn_like(X_sample)
 
