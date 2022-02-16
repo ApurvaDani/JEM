@@ -274,7 +274,7 @@ def grad_sample_x(X_sample, f, n_steps):
     for k in range(n_steps):
 
         out_energy = f(X_sample)
-        X_grad = t.autograd.grad(out_energy.sum(), [X_sample])[0]
+        X_grad = t.autograd.grad(out_energy.sum(), [X_sample])
         # print('X_grad prev', X_grad.shape)
         # X_grad = X_grad[0]
         # print('X_grad_new', X_grad.shape)
