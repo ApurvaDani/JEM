@@ -136,11 +136,11 @@ def get_model_and_buffer(args, device):
         ckpt_dict = t.load(args.load_path)
         f.load_state_dict(ckpt_dict["model_state_dict"])
         start_epoch = ckpt_dict['epoch']
-        cut_iter = ckpt_dict['cur_iter']
+        cur_iter = ckpt_dict['cur_iter']
         best_valid_acc = ckpt_dict['best_valid_acc']
 
     f = f.to(device)
-    return f, start_epoch, cut_iter
+    return f, start_epoch, cur_iter, best_valid_acc
 
 
 def get_optim(optim):
