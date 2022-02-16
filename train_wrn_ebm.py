@@ -124,7 +124,7 @@ def init_random(args, bs):
 #     f = f.to(device)
 #     return f, replay_buffer
 
-def get_model_and_buffer(args, optimizer, device):
+def get_model_and_buffer(args, device):
     model_cls = F if args.uncond else CCF
     f = model_cls(args.depth, args.width, args.norm, dropout_rate=args.dropout_rate, n_classes=args.n_classes)
     start_epoch = 0
@@ -212,12 +212,12 @@ def get_data(args):
     dset_valid = DataSubset(
         dataset_fn(True, transform_test),
         inds=valid_inds)
-    dload_train = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
-    dload_train_labeled = DataLoader(dset_train_labeled, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
+    dload_train = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=2, drop_last=True)
+    dload_train_labeled = DataLoader(dset_train_labeled, batch_size=args.batch_size, shuffle=True, num_workers=2, drop_last=True)
     dload_train_labeled = cycle(dload_train_labeled)
     dset_test = dataset_fn(False, transform_test)
-    dload_valid = DataLoader(dset_valid, batch_size=100, shuffle=False, num_workers=4, drop_last=False)
-    dload_test = DataLoader(dset_test, batch_size=100, shuffle=False, num_workers=4, drop_last=False)
+    dload_valid = DataLoader(dset_valid, batch_size=100, shuffle=False, num_workers=2, drop_last=False)
+    dload_test = DataLoader(dset_test, batch_size=100, shuffle=False, num_workers=2, drop_last=False)
     return dload_train, dload_train_labeled, dload_valid,dload_test
 
 
