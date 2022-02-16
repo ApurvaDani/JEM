@@ -128,15 +128,19 @@ def get_model_and_buffer(args, device):
     model_cls = F if args.uncond else CCF
     f = model_cls(args.depth, args.width, args.norm, dropout_rate=args.dropout_rate, n_classes=args.n_classes)
     start_epoch = 0
-    
+    cur_iter = 0
+    best_valid_acc = 0.0
+
     if args.load_path is not None:
         print(f"loading model from {args.load_path}")
         ckpt_dict = t.load(args.load_path)
         f.load_state_dict(ckpt_dict["model_state_dict"])
         start_epoch = ckpt_dict['epoch']
+        cut_iter = ckpt_dict['cur_iter']
+        best_valid_acc = ckpt_dict['best_valid_acc']
 
     f = f.to(device)
-    return f, start_epoch
+    return f, start_epoch, cut_iter
 
 
 def get_optim(optim):
@@ -295,12 +299,14 @@ def eval_classification(f, dload, device):
     return correct, loss
 
 
-def checkpoint(f, optimizer, epoch, tag, args, device):
+def checkpoint(f, optimizer, epoch, cur_iter, best_valid_acc, tag, args, device):
     f.cpu()
     ckpt_dict = {
         "epoch" : epoch,
         "optimizer_state_dict" : optimizer.state_dict(),
-        "model_state_dict": f.state_dict()
+        "model_state_dict": f.state_dict(),
+        "cur_iter":cur_iter,
+        "best_valid_acc":best_valid_acc
     }
     t.save(ckpt_dict, os.path.join(args.save_dir, tag))
     f.to(device)
@@ -323,7 +329,7 @@ def main(args):
 
     # sample_q = get_sample_q(args, device)
     # f, replay_buffer = get_model_and_buffer(args, device, sample_q)
-    f, start_epoch = get_model_and_buffer(args, device)
+    f, start_epoch, cur_iter, best_valid_acc = get_model_and_buffer(args, device)
 
     params = f.class_output.parameters() if args.clf_only else f.parameters()
     if args.optimizer == "adam":
@@ -342,8 +348,7 @@ def main(args):
     # else:
     #     optim = t.optim.SGD(params, lr=args.lr, momentum=.9, weight_decay=args.weight_decay)
 
-    best_valid_acc = 0.0
-    cur_iter = 0
+    
     for epoch in range(start_epoch, args.n_epochs):
         print('Starting epoch from ', start_epoch)
         if epoch in args.decay_epochs:
@@ -352,6 +357,7 @@ def main(args):
                 param_group['lr'] = new_lr
             print("Decaying lr to {}".format(new_lr))
         for i, (x_p_d, _) in tqdm(enumerate(dload_train)):
+            print('Current_Iter', cur_iter)
             if cur_iter <= args.warmup_iters:
                 lr = args.lr * cur_iter / float(args.warmup_iters)
                 for param_group in optim.param_groups:
@@ -434,8 +440,8 @@ def main(args):
             #         x_q_y = sample_q(f, replay_buffer, y=y)
             #         plot('{}/x_q_y{}_{:>06d}.png'.format(args.save_dir, epoch, i), x_q_y)
 
-        if epoch % args.ckpt_every == 0:
-            checkpoint(f, optim, epoch, f'ckpt_{epoch}.pt', args, device)
+        # if epoch % args.ckpt_every == 0:
+        #     checkpoint(f, optim, epoch, cur_iter, f'ckpt_{epoch}.pt', args, device)
 
         if epoch % args.eval_every == 0 and (args.p_y_given_x_weight > 0 or args.p_x_y_weight > 0):
             f.eval()
@@ -446,12 +452,16 @@ def main(args):
                 if correct > best_valid_acc:
                     best_valid_acc = correct
                     print("Best Valid!: {}".format(correct))
-                    checkpoint(f, optim, epoch, "best_valid_ckpt.pt", args, device)
+                    checkpoint(f, optim, epoch, cur_iter, best_valid_acc, "best_valid_ckpt.pt", args, device)
                 # test set
                 correct, loss = eval_classification(f, dload_test, device)
                 print("Epoch {}: Test Loss {}, Test Acc {}".format(epoch, loss, correct))
             f.train()
-        checkpoint(f, optim, epoch, "last_ckpt.pt", args, device)
+    
+        if epoch % args.ckpt_every == 0:
+            checkpoint(f, optim, epoch, cur_iter, best_valid_acc, f'ckpt_{epoch}.pt', args, device)
+        
+        checkpoint(f, optim, epoch, cur_iter, best_valid_acc, "last_ckpt.pt", args, device)
 
 
 
