@@ -425,6 +425,7 @@ def main(args):
             L.backward()
             optim.step()
             cur_iter += 1
+            break
 
             # if cur_iter % 100 == 0:
             #     if args.plot_uncond:
