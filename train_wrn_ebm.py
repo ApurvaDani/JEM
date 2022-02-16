@@ -265,6 +265,7 @@ def grad_sample_x(X_sample, f, n_steps):
     '''
   
     f.eval()
+    X_sample.requires_grad = True
     for k in range(n_steps):
 
         out_energy = f(X_sample)
@@ -275,6 +276,7 @@ def grad_sample_x(X_sample, f, n_steps):
         # print('X_GRAD', X_grad)
         X_sample.data -= X_grad + 0.01 * t.randn_like(X_sample)
 
+    X_sample.requires_grad = False
     f.train()
     return X_sample
 
@@ -483,7 +485,7 @@ if __name__ == "__main__":
     parser.add_argument("--norm", type=str, default=None, choices=[None, "norm", "batch", "instance", "layer", "act"],
                         help="norm to add to weights, none works fine")
     # EBM specific
-    parser.add_argument("--n_steps", type=int, default=20,
+    parser.add_argument("--n_steps", type=int, default=1,
                         help="number of steps of SGLD per iteration, 100 works for short-run, 20 works for PCD")
     parser.add_argument("--width", type=int, default=10, help="WRN width parameter")
     parser.add_argument("--depth", type=int, default=28, help="WRN depth parameter")
