@@ -274,7 +274,7 @@ def grad_sample_x(X_sample, f, n_steps):
     for k in range(n_steps):
 
         out_energy = f(X_sample)
-        X_grad = t.autograd.grad(out_energy.sum(), [X_sample])
+        X_grad = t.autograd.grad(out_energy.sum(), [X_sample])[0]
         # print('X_grad prev', X_grad.shape)
         # X_grad = X_grad[0]
         # print('X_grad_new', X_grad.shape)
@@ -379,12 +379,12 @@ def main(args):
                     assert not args.uncond, "can only draw class-conditional samples if EBM is class-cond"
                     # y_q = t.randint(0, args.n_classes, (args.batch_size,)).to(device)
                     # x_q = sample_q(f, replay_buffer, y=y_q)
-                    x_q = grad_sample_x(x_p_d, f, args.n_steps)
+                    x_q = grad_sample_x(x_p_d.detach().clone(), f, args.n_steps)
 
 
                 else:
                     # x_q = sample_q(f, replay_buffer)  # sample from log-sumexp
-                    x_q = grad_sample_x(x_p_d, f, args.n_steps)
+                    x_q = grad_sample_x(x_p_d.detach().clone(), f, args.n_steps)
 
                 fp_all = f(x_p_d)
                 fq_all = f(x_q)
