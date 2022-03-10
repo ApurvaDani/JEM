@@ -425,6 +425,8 @@ def main(args):
                 sys.exit()
 
             # break if the loss diverged...easier for poppa to run experiments this way
+            with open('./logs.txt', 'a') as fw:
+                fw.write('Epoch - ' +  str(epoch) + ' Iter - ' + str(cur_iter) +' EneL:' + str(energy_comp) + ' EntL:' + str(class_comp) + '\n')
             if L.abs().item() > 1e8:
                 print("BAD BOIIIIIIIIII")
                 1/0
@@ -433,6 +435,7 @@ def main(args):
             L.backward()
             optim.step()
             cur_iter += 1
+            
 
             # if cur_iter % 100 == 0:
             #     if args.plot_uncond:
