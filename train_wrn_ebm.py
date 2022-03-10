@@ -396,6 +396,7 @@ def main(args):
                     print('P(x) | {}:{:>d} f(x_p_d)={:>14.9f} f(x_q)={:>14.9f} d={:>14.9f}'.format(epoch, i, fp, fq,
                                                                                                    fp - fq))
                 L += args.p_x_weight * l_p_x
+                energy_comp = args.p_x_weight * l_p_x
 
             if args.p_y_given_x_weight > 0:  # maximize log p(y | x)
                 logits = f.classify(x_lab)
@@ -407,6 +408,7 @@ def main(args):
                                                                                  l_p_y_given_x.item(),
                                                                                  acc.item()))
                 L += args.p_y_given_x_weight * l_p_y_given_x
+                class_comp = args.p_y_given_x_weight * l_p_y_given_x
 
             if args.p_x_y_weight > 0:  # maximize log p(x, y)
 
@@ -465,7 +467,7 @@ def main(args):
             f.train()
         
         with open('./logs.txt', 'a') as fw:
-            fw.write('Epoch - ' +  str(epoch) + 'completed - ' + str(correct) + '\n')
+            fw.write('Epoch - ' +  str(epoch) + 'completed - ' + str(correct) +' EneL:' + str(energy_comp) + ' EntL:' + str(class_comp) + '\n')
         
         if epoch % args.ckpt_every == 0:
             checkpoint(f, optim, epoch, cur_iter, best_valid_acc, f'ckpt_{epoch}.pt', args, device)
