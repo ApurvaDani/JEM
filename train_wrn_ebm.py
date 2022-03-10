@@ -467,7 +467,7 @@ def main(args):
             f.train()
         
         with open('./logs.txt', 'a') as fw:
-            fw.write('Epoch - ' +  str(epoch) + 'completed - ' + str(correct) +' EneL:' + str(energy_comp) + ' EntL:' + str(class_comp) + '\n')
+            fw.write('Epoch - ' +  str(epoch) + ' completed - ' + str(correct) +' EneL:' + str(energy_comp) + ' EntL:' + str(class_comp) + '\n')
         
         if epoch % args.ckpt_every == 0:
             checkpoint(f, optim, epoch, cur_iter, best_valid_acc, f'ckpt_{epoch}.pt', args, device)
@@ -507,7 +507,7 @@ if __name__ == "__main__":
     parser.add_argument("--norm", type=str, default=None, choices=[None, "norm", "batch", "instance", "layer", "act"],
                         help="norm to add to weights, none works fine")
     # EBM specific
-    parser.add_argument("--n_steps", type=int, default=40,
+    parser.add_argument("--n_steps", type=int, default=20,
                         help="number of steps of SGLD per iteration, 100 works for short-run, 20 works for PCD")
     parser.add_argument("--width", type=int, default=10, help="WRN width parameter")
     parser.add_argument("--depth", type=int, default=28, help="WRN depth parameter")
