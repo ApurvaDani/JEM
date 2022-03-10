@@ -279,7 +279,7 @@ def grad_sample_x(X_sample, f, n_steps):
         # X_grad = X_grad[0]
         # print('X_grad_new', X_grad.shape)
         # print('X_GRAD', X_grad)
-        X_sample.data -= 10*X_grad + 0.01 * t.randn_like(X_sample)
+        X_sample.data -= X_grad + 0.01 * t.randn_like(X_sample)
 
     X_sample.requires_grad = False
     f.train()
